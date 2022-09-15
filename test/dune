@@ -1,0 +1,4 @@
+(test
+ (name test)
+ (modules test testCStdio)
+ (libraries alcotest mlcpp_cstdio unix))

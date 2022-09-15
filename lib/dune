@@ -1,0 +1,9 @@
+(library
+ (name mlcpp_cstdio)
+ (public_name mlcpp_cstdio)
+ (preprocess
+  (pps ppx_optcomp))
+ (foreign_stubs (language cxx) (names cstdio) (flags -std=c++17 -fno-exceptions))
+ (c_library_flags :standard -lstdc++)
+ (libraries unix)
+)
