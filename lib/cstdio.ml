@@ -12,7 +12,8 @@ module File = struct
         (* an array of bytes *)
         let create n = Bigarray.Array1.create Bigarray.char Bigarray.c_layout n
         let init n f = Bigarray.Array1.init Bigarray.char Bigarray.c_layout n f
-        let to_string _a = "<string>"
+        let to_string a = let len = Bigarray.Array1.dim a in
+            String.init len (fun i -> Bigarray.Array1.get a i)
     end
 
     let to_string file = file.fname ^ "(" ^ file.mode ^ ")"

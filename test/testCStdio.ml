@@ -77,6 +77,7 @@ module Testing = struct
                                 let buf = Cstdio.File.Buffer.create n in
                                 Cstdio.File.fread buf n fptr |> function
                                  | Ok cnt -> cnt
+                                   (* Printf.printf "  read:%s\n" (Cstdio.File.Buffer.to_string buf) ; -97 *)
                                  | Error (errno,errstr) -> 
                                    Printf.printf "no:%d err:%s\n" errno errstr ; -98
                                 end
