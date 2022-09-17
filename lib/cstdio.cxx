@@ -4,6 +4,7 @@ extern "C" {
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/alloc.h>
+#include <caml/bigarray.h>
 #include <caml/custom.h>
 // #include <caml/callback.h>
 #include <caml/fail.h>
@@ -240,5 +241,82 @@ value cpp_fseek_end(value vfp, value voff)
         set_err_values(res, -99, "no FILE pointer");
     }
     CAMLreturn(res);
+}
+} // extern C
+
+/*
+ *   cpp_fread : ta -> int -> fptr -> (int, (errorno, errstr))
+ */
+extern "C" {
+value cpp_fread(value varr, value vn, value vfp)
+{
+    CAMLparam3(varr, vn, vfp);
+    CAMLlocal2(res, vcnt);
+    CAMLlocal3(verrno, verrstr, t2);
+    verrno = Val_int(0);
+    char *tgt = (char *)Caml_ba_data_val(varr);
+    long n = Long_val(vn);
+    struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
+    long cnt = std::fread(tgt, 1, n, s->_file);
+    if (feof(s->_file) != 0) {
+        set_err_values(t2, -42, "EOF");
+    } else {
+        mk_err_values(t2, verrno, verrstr, (ferror(s->_file) != 0));
+    }
+    res = caml_alloc_tuple(2);
+    Store_field(res, 0, Val_long(cnt));
+    Store_field(res, 1, t2);
+    CAMLreturn(res);
+}
+} // extern C
+
+/*
+ *   cpp_fwrite : ta -> int -> fptr -> (int, (errorno, errstr))
+ */
+extern "C" {
+value cpp_fwrite(value varr, value vn, value vfp)
+{
+    CAMLparam3(varr, vn, vfp);
+    CAMLlocal2(res, vcnt);
+    CAMLlocal3(verrno, verrstr, t2);
+    verrno = Val_int(0);
+    const char *src = (const char *)Caml_ba_data_val(varr);
+    long n = Long_val(vn);
+    struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
+    long cnt = std::fwrite(src, 1, n, s->_file);
+    mk_err_values(t2, verrno, verrstr, (cnt < n));
+    res = caml_alloc_tuple(2);
+    Store_field(res, 0, Val_long(cnt));
+    Store_field(res, 1, t2);
+    CAMLreturn(res);
+}
+} // extern C
+
+/*
+ *   cpp_ferror : file -> (errorno, errstr)
+ */
+extern "C" {
+value cpp_ferror(value vfp)
+{
+    CAMLparam1(vfp);
+    CAMLlocal3(res, verrno, verrstr);
+    verrno = Val_int(0);
+    struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
+    int err = ferror(s->_file);
+    mk_err_values(res, verrno, verrstr, err != 0);
+    CAMLreturn(res);
+}
+} // extern C
+
+/*
+ *   cpp_feof : file -> bool
+ */
+extern "C" {
+value cpp_feof(value vfp)
+{
+    CAMLparam1(vfp);
+    struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
+    bool res = feof(s->_file) != 0;
+    CAMLreturn(Val_bool(res));
 }
 } // extern C

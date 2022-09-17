@@ -1,9 +1,19 @@
 open Result
+open Bigarray
 
 module File = struct
-    type cpp_file
+    type cpp_file   (* internal *)
     type file = { ptr: cpp_file; fname: string; mode: string }
     type errinfo = (int * string)
+    (* an error is indicated by the pair: errno, errstr where errno is != 0 *)
+
+    module Buffer = struct
+        type ta = (char, int8_unsigned_elt, c_layout) Array1.t
+        (* an array of bytes *)
+        let create n = Bigarray.Array1.create Bigarray.char Bigarray.c_layout n
+        let init n f = Bigarray.Array1.init Bigarray.char Bigarray.c_layout n f
+        let to_string _a = "<string>"
+    end
 
     let to_string file = file.fname ^ "(" ^ file.mode ^ ")"
     external cpp_fopen : string -> string -> (cpp_file * errinfo) = "cpp_fopen"
@@ -43,6 +53,23 @@ module File = struct
     let fseek_end f n = match cpp_fseek_end f.ptr n with
         | (0, _) -> Ok ()
         | (errno, errstr) -> Error (errno, errstr)
+
+    external cpp_fread : Buffer.ta -> int -> cpp_file -> (int * errinfo) = "cpp_fread"
+    let fread a n f = match cpp_fread a n f.ptr with
+        | (cnt, (0, _)) -> Ok cnt
+        | (_, (errno, errstr)) -> Error (errno, errstr)
+
+    external cpp_fwrite : Buffer.ta -> int -> cpp_file -> (int * errinfo) = "cpp_fwrite"
+    let fwrite a n f = match cpp_fwrite a n f.ptr with
+        | (cnt, (0, _)) -> Ok cnt
+        | (_, (errno, errstr)) -> Error (errno, errstr)
+
+    external cpp_ferror : cpp_file -> errinfo = "cpp_ferror"
+    let ferror f = cpp_ferror f.ptr
+
+    external cpp_feof : cpp_file -> bool = "cpp_feof"
+    let feof f = cpp_feof f.ptr
+
 
     let pp_file fmt f = Format.fprintf fmt "%s" @@ to_string f
     let pp_err fmt (eno,estr) = Format.fprintf fmt "%d/%s" eno estr

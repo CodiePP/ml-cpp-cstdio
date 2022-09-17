@@ -72,7 +72,30 @@ module Testing = struct
           end
         | Error _ -> -1
 
+  let fread = fun fn md n -> Cstdio.File.fopen fn md |> function
+                              | Ok fptr -> begin
+                                let buf = Cstdio.File.Buffer.create n in
+                                Cstdio.File.fread buf n fptr |> function
+                                 | Ok cnt -> cnt
+                                 | Error (errno,errstr) -> 
+                                   Printf.printf "no:%d err:%s\n" errno errstr ; -98
+                                end
+                              | Error _ -> -99
+
+  let fwrite = fun fn msg -> Cstdio.File.fopen fn "wx" |> function
+                              | Ok fptr -> begin
+                                let len = String.length msg in
+                                let buf = Cstdio.File.Buffer.init
+                                          len (fun i -> String.get msg i) in
+                                Cstdio.File.fwrite buf len fptr |> function
+                                 | Ok cnt -> cnt
+                                 | Error (errno,errstr) -> 
+                                   Printf.printf "no:%d err:%s\n" errno errstr ; -98
+                                end
+                              | Error _ -> -99
+
 end
+
 
 (* Tests *)
 
@@ -128,6 +151,15 @@ let test_fseek_relative2_existing () =
   Alcotest.(check int) "fseek existing"
   37 (* == *) (Testing.fseek_relative "test.ml" "r" 42 (-5))
 
+let test_fread_existing () =
+  Alcotest.(check int) "fread existing"
+  21 (* == *) (Testing.fread "test.ml" "r" 21)
+
+let test_fwrite () =
+  Alcotest.(check int) "fwrite"
+  12 (* == *) (Testing.fwrite "/tmp/hello_world.txt" "hello world.")
+
+
 (* Runner *)
 
 let test =
@@ -146,4 +178,6 @@ let test =
     test_case "fseek existing file" `Quick test_fseek_existing;
     test_case "fseek (relative+) existing file" `Quick test_fseek_relative_existing;
     test_case "fseek (relative-) existing file" `Quick test_fseek_relative2_existing;
+    test_case "fread on existing file" `Quick test_fread_existing;
+    test_case "fwrite to file" `Quick test_fwrite;
   ]
