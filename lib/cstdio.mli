@@ -7,6 +7,9 @@ sig
       val create : int -> ta
       val init : int -> (int -> char) -> ta
       val to_string : ta -> string
+      val size : ta -> int
+      val get : ta -> int -> char
+      val set : ta -> int -> char -> unit
     end
 
     type file
