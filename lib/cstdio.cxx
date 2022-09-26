@@ -320,3 +320,24 @@ value cpp_feof(value vfp)
     CAMLreturn(Val_bool(res));
 }
 } // extern C
+
+/*
+ *  cpp_copy_sz_pos: copy data between buffers
+ */
+extern "C" {
+value cpp_copy_sz_pos(value varr1, value vsz, value vpos, value varr2)
+{
+    CAMLparam4(varr1, vsz, vpos, varr2);
+    CAMLlocal1(res);
+    long sz = Long_val(vsz);
+    const char *src = (const char *)Caml_ba_data_val(varr1);
+    unsigned long l1 = caml_ba_byte_size(Caml_ba_array_val(varr1));
+    if (l1 < sz) { return Val_long(-1); }   // test if enough bytes can be copied from source
+    char *tgt = (char *)Caml_ba_data_val(varr2);
+    unsigned long l2 = caml_ba_byte_size(Caml_ba_array_val(varr2));
+    long pos = Long_val(vpos);
+    if (l2 < pos + sz) { return Val_long(-2); }  // test if the target can accept enough bytes
+    std::memcpy(tgt+pos, src, sz);
+    CAMLreturn(Val_long(sz));
+}
+} // extern C

@@ -95,6 +95,11 @@ module Testing = struct
                                 end
                               | Error _ -> -99
 
+  let copy_buffer_sz_pos = fun len1 sz pos len2 ->
+      let b1 = Cstdio.File.Buffer.create len1 in
+      let b2 = Cstdio.File.Buffer.create len2 in
+      Cstdio.File.Buffer.copy_sz_pos b1 sz pos b2
+
 end
 
 
@@ -160,7 +165,22 @@ let test_fwrite () =
   Alcotest.(check int) "fwrite"
   12 (* == *) (Testing.fwrite "/tmp/hello_world.txt" "hello world.")
 
+let test_copy_buffer_all () =
+  Alcotest.(check int) "copy buffer"
+  10 (* == *) (Testing.copy_buffer_sz_pos 10 10 0 10)
 
+let test_copy_buffer_src_short () =
+  Alcotest.(check int) "copy buffer"
+  (-1) (* == *) (Testing.copy_buffer_sz_pos 5 10 0 10)
+
+let test_copy_buffer_tgt_short1 () =
+  Alcotest.(check int) "copy buffer"
+  (-2) (* == *) (Testing.copy_buffer_sz_pos 10 10 0 5)
+
+let test_copy_buffer_tgt_short2 () =
+  Alcotest.(check int) "copy buffer"
+  (-2) (* == *) (Testing.copy_buffer_sz_pos 10 10 1 10)
+  
 (* Runner *)
 
 let test =
@@ -181,4 +201,8 @@ let test =
     test_case "fseek (relative-) existing file" `Quick test_fseek_relative2_existing;
     test_case "fread on existing file" `Quick test_fread_existing;
     test_case "fwrite to file" `Quick test_fwrite;
+    test_case "copy complete buffer" `Quick test_copy_buffer_all;
+    test_case "copy from short buffer" `Quick test_copy_buffer_src_short;
+    test_case "copy to short buffer" `Quick test_copy_buffer_tgt_short1;
+    test_case "copy to short buffer" `Quick test_copy_buffer_tgt_short2;
   ]
