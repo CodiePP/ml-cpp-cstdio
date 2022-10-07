@@ -258,7 +258,7 @@ value cpp_fread(value varr, value vn, value vfp)
     long n = Long_val(vn);
     struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
     long cnt = std::fread(tgt, 1, n, s->_file);
-    if (feof(s->_file) != 0) {
+    if (cnt <= 0 && feof(s->_file) != 0) {
         set_err_values(t2, -42, "EOF");
     } else {
         mk_err_values(t2, verrno, verrstr, (ferror(s->_file) != 0));
@@ -325,19 +325,23 @@ value cpp_feof(value vfp)
  *  cpp_copy_sz_pos: copy data between buffers
  */
 extern "C" {
-value cpp_copy_sz_pos(value varr1, value vsz, value vpos, value varr2)
+value cpp_copy_sz_pos(value varr1, value vpos1, value vsz, value varr2, value vpos2)
 {
-    CAMLparam4(varr1, vsz, vpos, varr2);
+    CAMLparam5(varr1, vpos1, vsz, varr2, vpos2);
     CAMLlocal1(res);
     long sz = Long_val(vsz);
+    if (sz < 0) { return Val_long(-3); }
+    long pos1 = Long_val(vpos1);
+    if (pos1 < 0) { return Val_long(-4); }
     const char *src = (const char *)Caml_ba_data_val(varr1);
     unsigned long l1 = caml_ba_byte_size(Caml_ba_array_val(varr1));
-    if (l1 < sz) { return Val_long(-1); }   // test if enough bytes can be copied from source
+    if (l1 < sz + pos1) { return Val_long(-1); }   // test if enough bytes can be copied from source
     char *tgt = (char *)Caml_ba_data_val(varr2);
     unsigned long l2 = caml_ba_byte_size(Caml_ba_array_val(varr2));
-    long pos = Long_val(vpos);
-    if (l2 < pos + sz) { return Val_long(-2); }  // test if the target can accept enough bytes
-    std::memcpy(tgt+pos, src, sz);
+    long pos2 = Long_val(vpos2);
+    if (pos2 < 0) { return Val_long(-5); }
+    if (l2 < pos2 + sz) { return Val_long(-2); }  // test if the target can accept enough bytes
+    std::memcpy(tgt+pos2, src+pos1, sz);
     CAMLreturn(Val_long(sz));
 }
 } // extern C

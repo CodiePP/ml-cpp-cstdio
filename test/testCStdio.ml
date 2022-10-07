@@ -98,7 +98,7 @@ module Testing = struct
   let copy_buffer_sz_pos = fun len1 sz pos len2 ->
       let b1 = Cstdio.File.Buffer.create len1 in
       let b2 = Cstdio.File.Buffer.create len2 in
-      Cstdio.File.Buffer.copy_sz_pos b1 sz pos b2
+      Cstdio.File.Buffer.copy_sz_pos b1 0 sz b2 pos
 
 end
 
@@ -159,7 +159,7 @@ let test_fseek_relative2_existing () =
 
 let test_fread_existing () =
   Alcotest.(check int) "fread existing"
-  21 (* == *) (Testing.fread "test.ml" "r" 21)
+  81 (* == *) (Testing.fread "test.ml" "r" 2100)
 
 let test_fwrite () =
   Alcotest.(check int) "fwrite"

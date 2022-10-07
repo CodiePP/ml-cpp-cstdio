@@ -17,8 +17,8 @@ module File = struct
         let size = Bigarray.Array1.dim
         let get = Bigarray.Array1.get
         let set = Bigarray.Array1.set
-        external cpp_copy_sz_pos : ta -> int -> int -> ta -> int = "cpp_copy_sz_pos"
-        let copy_sz_pos b1 sz pos b2 = cpp_copy_sz_pos b1 sz pos b2
+        external cpp_copy_sz_pos : ta -> int -> int -> ta -> int -> int = "cpp_copy_sz_pos"
+        let copy_sz_pos b1 pos1 sz b2 pos2 = cpp_copy_sz_pos b1 pos1 sz b2 pos2
     end
 
     let to_string file = file.fname ^ "(" ^ file.mode ^ ")"

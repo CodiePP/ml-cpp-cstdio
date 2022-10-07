@@ -10,7 +10,7 @@ sig
       val size : ta -> int
       val get : ta -> int -> char
       val set : ta -> int -> char -> unit
-      val copy_sz_pos : ta -> int -> int -> ta -> int
+      val copy_sz_pos : ta -> int -> int -> ta -> int -> int
     end
 
     type file
