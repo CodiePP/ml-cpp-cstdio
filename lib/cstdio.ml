@@ -12,8 +12,12 @@ module File = struct
         (* an array of bytes *)
         let create n = Bigarray.Array1.create Bigarray.char Bigarray.c_layout n
         let init n f = Bigarray.Array1.init Bigarray.char Bigarray.c_layout n f
-        let to_string a = let len = Bigarray.Array1.dim a in
+        let to_string a =
+            let len = Bigarray.Array1.dim a in
             String.init len (fun i -> Bigarray.Array1.get a i)
+        let from_string s =
+            let len = String.length s in
+            init len (fun i -> String.get s i)
         let size = Bigarray.Array1.dim
         let get = Bigarray.Array1.get
         let set = Bigarray.Array1.set
@@ -75,6 +79,33 @@ module File = struct
 
     external cpp_feof : cpp_file -> bool = "cpp_feof"
     let feof f = cpp_feof f.ptr
+
+    let content64k fp fpos =
+        if fpos < 0 then Error (-1, "file pos. cannot be negative")
+        else
+        let bsz = 64 * 1024 in
+        fopen fp "rx" |> function
+        | Error err -> Error err
+        | Ok file -> begin
+            fseek file fpos |> function
+            | Error err -> Error err
+            | Ok () -> begin
+                let b = Buffer.create bsz in
+                fread b bsz file |> function
+                | Error err -> Error err
+                | Ok n -> begin
+                    let b' =
+                        if n < bsz
+                        then let b2 = Buffer.create n in
+                             Buffer.copy_sz_pos b 0 n b2 0 |> ignore;
+                             b2
+                        else b in
+                    fclose file |> function
+                    | Error err -> Error err
+                    | Ok () -> Ok b'
+                    end
+                end
+            end
 
     let pp_file fmt f = Format.fprintf fmt "%s" @@ to_string f
     let pp_err fmt (eno,estr) = Format.fprintf fmt "%d/%s" eno estr

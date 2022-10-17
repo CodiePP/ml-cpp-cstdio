@@ -7,6 +7,7 @@ sig
       val create : int -> ta
       val init : int -> (int -> char) -> ta
       val to_string : ta -> string
+      val from_string : string -> ta
       val size : ta -> int
       val get : ta -> int -> char
       val set : ta -> int -> char -> unit
@@ -30,6 +31,8 @@ sig
     val fwrite : Buffer.ta -> int -> file -> (int, errinfo) result
     val ferror : file -> errinfo
     val feof : file -> bool
+
+    val content64k : string -> int -> (Buffer.ta, errinfo) result
 
     val pp_file : Format.formatter -> file -> unit
     val pp_err : Format.formatter -> errinfo -> unit
