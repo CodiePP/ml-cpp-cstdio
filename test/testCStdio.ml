@@ -98,7 +98,7 @@ module Testing = struct
   let copy_buffer_sz_pos = fun len1 sz pos len2 ->
       let b1 = Cstdio.File.Buffer.create len1 in
       let b2 = Cstdio.File.Buffer.create len2 in
-      Cstdio.File.Buffer.copy_sz_pos b1 0 sz b2 pos
+      Cstdio.File.Buffer.copy_sz_pos b1 ~pos1:0 ~sz:sz b2 ~pos2:pos
 
 end
 
@@ -180,7 +180,22 @@ let test_copy_buffer_tgt_short1 () =
 let test_copy_buffer_tgt_short2 () =
   Alcotest.(check int) "copy buffer"
   (-2) (* == *) (Testing.copy_buffer_sz_pos 10 10 1 10)
-  
+
+let test_resize_buffer_short () =
+  Alcotest.(check int) "resize buffer short"
+  (6) (* == *) (Cstdio.File.Buffer.init 6 (fun i -> String.get "hello." i) |>
+                    (fun b -> Cstdio.File.Buffer.resize b 3; b) |>
+                    Cstdio.File.Buffer.size
+                   )
+
+let test_resize_buffer () =
+  Alcotest.(check char) "resize buffer"
+  ('o') (* == *) (Cstdio.File.Buffer.init 6 (fun i -> String.get "hello." i) |>
+                    (fun b -> Cstdio.File.Buffer.resize b 66; b) |>
+                    (fun b -> Cstdio.File.Buffer.get b 4)
+                   )
+
+
 (* Runner *)
 
 let test =
@@ -205,4 +220,6 @@ let test =
     test_case "copy from short buffer" `Quick test_copy_buffer_src_short;
     test_case "copy to short buffer" `Quick test_copy_buffer_tgt_short1;
     test_case "copy to short buffer" `Quick test_copy_buffer_tgt_short2;
+    (* test_case "resize buffer (short)" `Quick test_resize_buffer_short; *)
+    (* test_case "resize buffer" `Quick test_resize_buffer; *)
   ]

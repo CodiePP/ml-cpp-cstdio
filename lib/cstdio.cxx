@@ -13,6 +13,7 @@ extern "C" {
 } //extern C
 
 // C++ includes
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -47,6 +48,42 @@ void mk_file(value &res, _cpp_cstdio_file const &s) {
     auto * cs = new _cpp_cstdio_file;
     cs->_file = s._file;
     CPP_CSTDIO_FILE(res) = cs;
+}
+
+struct _cpp_cstdio_buffer {
+    char *_buf {nullptr};
+    long _len {0};
+};
+
+#define CPP_CSTDIO_BUFFER(v) (*((_cpp_cstdio_buffer**) Data_custom_val(v)))
+
+void del_cpp_cstdio_buffer (value v) {
+    CAMLparam1(v);
+    struct _cpp_cstdio_buffer *s = CPP_CSTDIO_BUFFER(v);
+    if (s) {
+        // printf("delete timepoint %llx\n", s);
+        if (s->_buf) { free(s->_buf); }
+        delete s;
+    }
+    CAMLreturn0;
+}
+
+static struct custom_operations cpp_cstdio_buffer_ops = {
+    (char *)"mlcpp_cstdio_buffer",
+    del_cpp_cstdio_buffer,
+    custom_compare_default,
+    custom_hash_default,
+    custom_serialize_default,
+    custom_deserialize_default
+};
+
+void mk_buffer(value &res, _cpp_cstdio_buffer const &s) {
+    res = caml_alloc_custom(&cpp_cstdio_buffer_ops,
+                            sizeof(_cpp_cstdio_buffer*), 1, 10000);
+    auto * cs = new _cpp_cstdio_buffer;
+    cs->_buf = s._buf;
+    cs->_len = s._len;
+    CPP_CSTDIO_BUFFER(res) = cs;
 }
 
 #define mk_err_values(vtuple, verrno, verrstr, iserr) \
@@ -248,20 +285,26 @@ value cpp_fseek_end(value vfp, value voff)
  *   cpp_fread : ta -> int -> fptr -> (int, (errorno, errstr))
  */
 extern "C" {
-value cpp_fread(value varr, value vn, value vfp)
+value cpp_fread(value vbuf, value vn, value vfp)
 {
-    CAMLparam3(varr, vn, vfp);
+    CAMLparam3(vbuf, vn, vfp);
     CAMLlocal2(res, vcnt);
     CAMLlocal3(verrno, verrstr, t2);
     verrno = Val_int(0);
-    char *tgt = (char *)Caml_ba_data_val(varr);
-    long n = Long_val(vn);
-    struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
-    long cnt = std::fread(tgt, 1, n, s->_file);
-    if (cnt <= 0 && feof(s->_file) != 0) {
-        set_err_values(t2, -42, "EOF");
+    long cnt = 0;
+    struct _cpp_cstdio_buffer *b = CPP_CSTDIO_BUFFER(vbuf);
+    if (b == NULL || b->_buf == NULL) {
+        set_err_values(t2, -1, "no buffer");
     } else {
-        mk_err_values(t2, verrno, verrstr, (ferror(s->_file) != 0));
+        long n = std::min(b->_len, Long_val(vn));
+        char *tgt = b->_buf;
+        struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
+        cnt = std::fread(tgt, 1, n, s->_file);
+        if (cnt <= 0 && feof(s->_file) != 0) {
+            set_err_values(t2, -42, "EOF");
+        } else {
+            mk_err_values(t2, verrno, verrstr, (ferror(s->_file) != 0));
+        }
     }
     res = caml_alloc_tuple(2);
     Store_field(res, 0, Val_long(cnt));
@@ -274,17 +317,23 @@ value cpp_fread(value varr, value vn, value vfp)
  *   cpp_fwrite : ta -> int -> fptr -> (int, (errorno, errstr))
  */
 extern "C" {
-value cpp_fwrite(value varr, value vn, value vfp)
+value cpp_fwrite(value vbuf, value vn, value vfp)
 {
-    CAMLparam3(varr, vn, vfp);
+    CAMLparam3(vbuf, vn, vfp);
     CAMLlocal2(res, vcnt);
     CAMLlocal3(verrno, verrstr, t2);
     verrno = Val_int(0);
-    const char *src = (const char *)Caml_ba_data_val(varr);
-    long n = Long_val(vn);
-    struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
-    long cnt = std::fwrite(src, 1, n, s->_file);
-    mk_err_values(t2, verrno, verrstr, (cnt < n));
+    long cnt = 0;
+    struct _cpp_cstdio_buffer *b = CPP_CSTDIO_BUFFER(vbuf);
+    if (b == NULL || b->_buf == NULL) {
+        set_err_values(t2, -1, "no buffer");
+    } else {
+        const char *src = b->_buf;
+        long n = std::min(b->_len, Long_val(vn));
+        struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
+        cnt = std::fwrite(src, 1, n, s->_file);
+        mk_err_values(t2, verrno, verrstr, (cnt < n));
+    }
     res = caml_alloc_tuple(2);
     Store_field(res, 0, Val_long(cnt));
     Store_field(res, 1, t2);
@@ -325,23 +374,118 @@ value cpp_feof(value vfp)
  *  cpp_copy_sz_pos: copy data between buffers
  */
 extern "C" {
-value cpp_copy_sz_pos(value varr1, value vpos1, value vsz, value varr2, value vpos2)
+value cpp_copy_sz_pos(value vbuf1, value vpos1, value vsz, value vbuf2, value vpos2)
 {
-    CAMLparam5(varr1, vpos1, vsz, varr2, vpos2);
+    CAMLparam5(vbuf1, vpos1, vsz, vbuf2, vpos2);
     CAMLlocal1(res);
     long sz = Long_val(vsz);
     if (sz < 0) { return Val_long(-3); }
     long pos1 = Long_val(vpos1);
     if (pos1 < 0) { return Val_long(-4); }
-    const char *src = (const char *)Caml_ba_data_val(varr1);
-    unsigned long l1 = caml_ba_byte_size(Caml_ba_array_val(varr1));
-    if (l1 < sz + pos1) { return Val_long(-1); }   // test if enough bytes can be copied from source
-    char *tgt = (char *)Caml_ba_data_val(varr2);
-    unsigned long l2 = caml_ba_byte_size(Caml_ba_array_val(varr2));
+    struct _cpp_cstdio_buffer *cb1 = CPP_CSTDIO_BUFFER(vbuf1);
+    if (cb1->_len < sz + pos1) { return Val_long(-1); }   // test if enough bytes can be copied from source
+    struct _cpp_cstdio_buffer *cb2 = CPP_CSTDIO_BUFFER(vbuf2);
     long pos2 = Long_val(vpos2);
     if (pos2 < 0) { return Val_long(-5); }
-    if (l2 < pos2 + sz) { return Val_long(-2); }  // test if the target can accept enough bytes
-    std::memcpy(tgt+pos2, src+pos1, sz);
+    if (cb2->_len < pos2 + sz) { return Val_long(-2); }  // test if the target can accept enough bytes
+    std::memcpy(cb2->_buf+pos2, cb1->_buf+pos1, sz);
     CAMLreturn(Val_long(sz));
+}
+} // extern C
+
+/*
+ *  cpp_buffer_create: create buffers
+ */
+extern "C" {
+value cpp_buffer_create(value vsz)
+{
+    CAMLparam1(vsz);
+    CAMLlocal1(res);
+    long sz = Long_val(vsz);
+    struct _cpp_cstdio_buffer cb;
+    cb._buf = (char*)calloc(sz, 1);
+    cb._len = cb._buf?sz:0;
+    mk_buffer(res, cb);
+    CAMLreturn(res);
+}
+} // extern C
+
+/*
+ *  cpp_buffer_resize: reallocate buffers
+ */
+extern "C" {
+value cpp_buffer_resize(value vbuf, value vsz)
+{
+    CAMLparam2(vbuf, vsz);
+    struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
+    long sz = Long_val(vsz);
+    if (sz > cb->_len) {
+        void *p = realloc(cb->_buf, sz);
+        if (p) {
+            cb->_buf = (char*)p;
+            cb->_len = cb->_buf?sz:0;
+        } else {
+            fprintf(stderr, "realloc error: %d %s\n", errno, strerror(errno));
+        }
+    }
+    CAMLreturn(Val_unit);
+}
+} // extern C
+
+/*
+ *  cpp_buffer_good: is buffer ok?
+ */
+extern "C" {
+value cpp_buffer_good(value vbuf)
+{
+    CAMLparam1(vbuf);
+    struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
+    CAMLreturn(Val_bool(cb != NULL && cb->_buf != NULL && cb->_len > 0));
+}
+} // extern C
+
+/*
+ *  cpp_buffer_size: length of buffer
+ */
+extern "C" {
+value cpp_buffer_size(value vbuf)
+{
+    CAMLparam1(vbuf);
+    struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
+    CAMLreturn(Val_long(cb->_len));
+}
+} // extern C
+
+/*
+ *  cpp_buffer_get: get char at index of buffer
+ */
+extern "C" {
+value cpp_buffer_get(value vbuf, value vidx)
+{
+    CAMLparam2(vbuf,vidx);
+    const struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
+    long idx = Long_val(vidx);
+    int ch = -1;
+    if (cb && cb->_buf && idx >= 0 && idx < cb->_len) {
+        ch = cb->_buf[idx];
+    }
+    CAMLreturn(Val_int(ch));
+}
+} // extern C
+
+/*
+ *  cpp_buffer_set: set char at index of buffer
+ */
+extern "C" {
+value cpp_buffer_set(value vbuf, value vidx, value vch)
+{
+    CAMLparam3(vbuf,vidx,vch);
+    struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
+    long idx = Long_val(vidx);
+    int ch = Int_val(vch);
+    if (cb && cb->_buf && idx >= 0 && idx < cb->_len) {
+        cb->_buf[idx] = (char)ch;
+    }
+    CAMLreturn(Val_unit);
 }
 } // extern C

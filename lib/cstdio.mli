@@ -5,13 +5,15 @@ sig
     sig
       type ta
       val create : int -> ta
+      val resize : ta -> int -> unit
+      val good : ta -> bool
       val init : int -> (int -> char) -> ta
       val to_string : ta -> string
       val from_string : string -> ta
       val size : ta -> int
       val get : ta -> int -> char
       val set : ta -> int -> char -> unit
-      val copy_sz_pos : ta -> int -> int -> ta -> int -> int
+      val copy_sz_pos : ta -> pos1:int -> sz:int -> ta -> pos2:int -> int
     end
 
     type file

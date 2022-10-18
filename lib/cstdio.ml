@@ -1,5 +1,5 @@
 open Result
-open Bigarray
+(* open Bigarray *)
 
 module File = struct
     type cpp_file   (* internal *)
@@ -8,21 +8,35 @@ module File = struct
     (* an error is indicated by the pair: errno, errstr where errno is != 0 *)
 
     module Buffer = struct
-        type ta = (char, int8_unsigned_elt, c_layout) Array1.t
+        (* type ta = (char, int8_unsigned_elt, c_layout) Array1.t *)
+        type ta
         (* an array of bytes *)
-        let create n = Bigarray.Array1.create Bigarray.char Bigarray.c_layout n
-        let init n f = Bigarray.Array1.init Bigarray.char Bigarray.c_layout n f
-        let to_string a =
-            let len = Bigarray.Array1.dim a in
-            String.init len (fun i -> Bigarray.Array1.get a i)
+        (* let create n = Bigarray.Array1.create Bigarray.char Bigarray.c_layout n *)
+        external create : int -> ta = "cpp_buffer_create"
+        external resize : ta -> int -> unit = "cpp_buffer_resize"
+        external good : ta -> bool = "cpp_buffer_good"
+        external size : ta -> int = "cpp_buffer_size"
+        external get : ta -> int -> char = "cpp_buffer_get"
+        external set : ta -> int -> char -> unit = "cpp_buffer_set"
+        let rec init' n f b =
+            match n with
+            | 0 -> b
+            | i -> begin
+                set b (i - 1) (f (i - 1)) |> ignore;
+                init' (n - 1) f b
+                end
+        let init n f = (* Bigarray.Array1.init Bigarray.char Bigarray.c_layout n f *)
+            let b = create n in
+            init' n f b
+        let to_string b =
+            let len = size b in
+            String.init len (fun i -> get b i)
         let from_string s =
             let len = String.length s in
             init len (fun i -> String.get s i)
-        let size = Bigarray.Array1.dim
-        let get = Bigarray.Array1.get
-        let set = Bigarray.Array1.set
+        (* let size = Bigarray.Array1.dim *)
         external cpp_copy_sz_pos : ta -> int -> int -> ta -> int -> int = "cpp_copy_sz_pos"
-        let copy_sz_pos b1 pos1 sz b2 pos2 = cpp_copy_sz_pos b1 pos1 sz b2 pos2
+        let copy_sz_pos b1 ~pos1:pos1 ~sz:sz b2 ~pos2:pos2 = cpp_copy_sz_pos b1 pos1 sz b2 pos2
     end
 
     let to_string file = file.fname ^ "(" ^ file.mode ^ ")"
@@ -97,7 +111,7 @@ module File = struct
                     let b' =
                         if n < bsz
                         then let b2 = Buffer.create n in
-                             Buffer.copy_sz_pos b 0 n b2 0 |> ignore;
+                             Buffer.copy_sz_pos b ~pos1:0 ~sz:n b2 ~pos2:0 |> ignore;
                              b2
                         else b in
                     fclose file |> function
