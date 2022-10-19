@@ -5,12 +5,15 @@ sig
     sig
       type ta
       val create : int -> ta
+      val resize : ta -> int -> unit
+      val good : ta -> bool
       val init : int -> (int -> char) -> ta
       val to_string : ta -> string
+      val from_string : string -> ta
       val size : ta -> int
       val get : ta -> int -> char
       val set : ta -> int -> char -> unit
-      val copy_sz_pos : ta -> int -> int -> ta -> int -> int
+      val copy_sz_pos : ta -> pos1:int -> sz:int -> ta -> pos2:int -> int
     end
 
     type file
@@ -30,6 +33,8 @@ sig
     val fwrite : Buffer.ta -> int -> file -> (int, errinfo) result
     val ferror : file -> errinfo
     val feof : file -> bool
+
+    val content64k : string -> int -> (Buffer.ta, errinfo) result
 
     val pp_file : Format.formatter -> file -> unit
     val pp_err : Format.formatter -> errinfo -> unit
