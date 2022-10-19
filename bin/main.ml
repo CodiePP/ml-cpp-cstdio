@@ -18,6 +18,21 @@ let test2 () =
     let c3 = Cstdio.File.Buffer.get b 1042 in
     Printf.printf "%c = %c = %c = '!' ? " c1 c2 c3
 
+let rec repeat_realloc n b =
+    match n with
+    | 0 -> ()
+    | i -> let sz = Cstdio.File.Buffer.size b in
+           Cstdio.File.Buffer.resize b (sz + 112);
+           repeat_realloc (i - 1) b
+
+let test3 () =
+    let t0 = Sys.time() in
+    let b = Cstdio.File.Buffer.create 540 in
+    let () = repeat_realloc 1000000 b in
+    let t1 = Sys.time() in
+    Printf.printf "test: run time = %4.3fs\n" (t1 -. t0)
+
 let () =
     test1 ();
-    test2 ()
+    test2 ();
+    test3 ()
