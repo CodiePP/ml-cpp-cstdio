@@ -5,6 +5,7 @@ sig
     sig
       type ta
       val create : int -> ta
+      val release : ta -> ta
       val resize : ta -> int -> unit
       val good : ta -> bool
       val init : int -> (int -> char) -> ta
@@ -14,6 +15,7 @@ sig
       val get : ta -> int -> char
       val set : ta -> int -> char -> unit
       val copy_sz_pos : ta -> pos1:int -> sz:int -> ta -> pos2:int -> int
+      val copy_string : string -> ta -> int -> unit
     end
 
     type file
@@ -31,6 +33,7 @@ sig
     val fseek_end : file -> int -> (unit, errinfo) result
     val fread : Buffer.ta -> int -> file -> (int, errinfo) result
     val fwrite : Buffer.ta -> int -> file -> (int, errinfo) result
+    val fwrite_s : string -> file -> (int, errinfo) result
     val ferror : file -> errinfo
     val feof : file -> bool
 

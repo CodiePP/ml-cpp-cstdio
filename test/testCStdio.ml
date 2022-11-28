@@ -50,7 +50,8 @@ module Testing = struct
                                                 end
                                               | Error (errno,errstr) -> 
                                                 Printf.printf "no:%d err:%s\n" errno errstr ; -2
-                                  end
+                                  end |> ignore;
+                                  Cstdio.File.fclose fptr |> ignore; 42
                                 | Error _ -> -1
 
   let fseek_relative = fun fn md off1 off2 -> Cstdio.File.fopen fn md |> function
@@ -95,10 +96,23 @@ module Testing = struct
                                 end
                               | Error _ -> -99
 
+  let fwrite_s = fun fn msg -> Cstdio.File.fopen fn "wx" |> function
+                              | Ok fptr -> begin
+                                Cstdio.File.fwrite_s msg fptr |> function
+                                 | Ok cnt -> cnt
+                                 | Error (errno,errstr) -> 
+                                   Printf.printf "no:%d err:%s\n" errno errstr ; -98
+                                end
+                              | Error _ -> -99
+
   let copy_buffer_sz_pos = fun len1 sz pos len2 ->
       let b1 = Cstdio.File.Buffer.create len1 in
       let b2 = Cstdio.File.Buffer.create len2 in
       Cstdio.File.Buffer.copy_sz_pos b1 ~pos1:0 ~sz:sz b2 ~pos2:pos
+
+  let copy_string = fun s ->
+      let b = Cstdio.File.Buffer.create (String.length s) in
+      Cstdio.File.Buffer.copy_string s b 0; b
 
 end
 
@@ -165,6 +179,10 @@ let test_fwrite () =
   Alcotest.(check int) "fwrite"
   12 (* == *) (Testing.fwrite "/tmp/hello_world.txt" "hello world.")
 
+let test_fwrite_s () =
+  Alcotest.(check int) "fwrite"
+  12 (* == *) (Testing.fwrite_s "/tmp/hello_world2.txt" "hello world.")
+
 let test_copy_buffer_all () =
   Alcotest.(check int) "copy buffer"
   10 (* == *) (Testing.copy_buffer_sz_pos 10 10 0 10)
@@ -195,6 +213,20 @@ let test_resize_buffer () =
                     (fun b -> Cstdio.File.Buffer.get b 4)
                    )
 
+let test_create_many_buffers () =
+  Alcotest.(check string) "create many buffers"
+  ("√") (* == *) (for _i = 0 to 9999 do
+                   (Cstdio.File.Buffer.create 10000000 |>
+                    Cstdio.File.Buffer.release |> ignore)
+                 done; "√")
+
+let test_copy_string () =
+  Alcotest.(check string) "copy string"
+  ("hello world!") (* == *) (Testing.copy_string "hello " |>
+                    (fun b -> Cstdio.File.Buffer.resize b 12; b) |>
+                    (fun b -> Cstdio.File.Buffer.copy_string "world!" b 6;
+                    Cstdio.File.Buffer.to_string b)
+                   )
 
 (* Runner *)
 
@@ -202,6 +234,7 @@ let test =
   let open Alcotest in
   "ML Cpp CStdio",
   [
+    test_case "create many buffers" `Quick test_create_many_buffers;
     test_case "open existing file" `Quick test_open_existing;
     test_case "open unknown file" `Quick test_open_unknown;
     test_case "open&close unknown file" `Quick test_open_close_unknown;
@@ -215,7 +248,9 @@ let test =
     test_case "fseek (relative+) existing file" `Quick test_fseek_relative_existing;
     test_case "fseek (relative-) existing file" `Quick test_fseek_relative2_existing;
     test_case "fread on existing file" `Quick test_fread_existing;
-    test_case "fwrite to file" `Quick test_fwrite;
+    test_case "fwrite buffer to file" `Quick test_fwrite;
+    test_case "fwrite string to file" `Quick test_fwrite_s;
+    test_case "copy string" `Quick test_copy_string;
     test_case "copy complete buffer" `Quick test_copy_buffer_all;
     test_case "copy from short buffer" `Quick test_copy_buffer_src_short;
     test_case "copy to short buffer" `Quick test_copy_buffer_tgt_short1;

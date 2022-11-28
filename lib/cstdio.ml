@@ -13,6 +13,7 @@ module File = struct
         (* an array of bytes *)
         (* let create n = Bigarray.Array1.create Bigarray.char Bigarray.c_layout n *)
         external create : int -> ta = "cpp_buffer_create"
+        external release : ta -> ta = "cpp_buffer_release"
         external resize : ta -> int -> unit = "cpp_buffer_resize"
         external good : ta -> bool = "cpp_buffer_good"
         external size : ta -> int = "cpp_buffer_size"
@@ -37,6 +38,7 @@ module File = struct
         (* let size = Bigarray.Array1.dim *)
         external cpp_copy_sz_pos : ta -> int -> int -> ta -> int -> int = "cpp_copy_sz_pos"
         let copy_sz_pos b1 ~pos1:pos1 ~sz:sz b2 ~pos2:pos2 = cpp_copy_sz_pos b1 pos1 sz b2 pos2
+        external copy_string : string -> ta -> int -> unit = "cpp_copy_string"
     end
 
     let to_string file = file.fname ^ "(" ^ file.mode ^ ")"
@@ -85,6 +87,11 @@ module File = struct
 
     external cpp_fwrite : Buffer.ta -> int -> cpp_file -> (int * errinfo) = "cpp_fwrite"
     let fwrite a n f = match cpp_fwrite a n f.ptr with
+        | (cnt, (0, _)) -> Ok cnt
+        | (_, (errno, errstr)) -> Error (errno, errstr)
+
+    external cpp_fwrite_s : string -> cpp_file -> (int * errinfo) = "cpp_fwrite_s"
+    let fwrite_s s f = match cpp_fwrite_s s f.ptr with
         | (cnt, (0, _)) -> Ok cnt
         | (_, (errno, errstr)) -> Error (errno, errstr)
 
