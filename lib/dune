@@ -3,7 +3,7 @@
  (public_name mlcpp_cstdio)
  (preprocess
   (pps ppx_optcomp))
- (foreign_stubs (language cxx) (names cstdio) (flags -std=c++17 -fno-exceptions))
- (c_library_flags :standard -lstdc++)
+ (foreign_stubs (language cxx) (names cstdio) (flags -std=c++17 -fno-exceptions -fPIC))
+ (c_library_flags :standard -lstdc++ -fPIC)
  (libraries unix)
 )
