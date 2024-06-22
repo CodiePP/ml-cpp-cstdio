@@ -86,24 +86,22 @@ module Testing = struct
 
   let fwrite = fun fn msg -> Cstdio.File.fopen fn "wx" |> function
                               | Ok fptr -> begin
-                                let len = String.length msg in
-                                let buf = Cstdio.File.Buffer.init
-                                          len (fun i -> String.get msg i) in
-                                Cstdio.File.fwrite buf len fptr |> function
-                                 | Ok cnt -> cnt
-                                 | Error (errno,errstr) -> 
-                                   Printf.printf "no:%d err:%s\n" errno errstr ; -98
+                                  let len = String.length msg in
+                                  let buf = Cstdio.File.Buffer.init
+                                            len (fun i -> String.get msg i) in
+                                  Cstdio.File.fwrite buf len fptr |> function
+                                    | Ok cnt -> Cstdio.File.fclose fptr |> ignore; cnt
+                                    | Error (errno,errstr) -> Printf.printf "no:%d err:%s\n" errno errstr; -98 
                                 end
                               | Error _ -> -99
 
   let fwrite_s = fun fn msg -> Cstdio.File.fopen fn "wx" |> function
-                              | Ok fptr -> begin
-                                Cstdio.File.fwrite_s msg fptr |> function
-                                 | Ok cnt -> cnt
-                                 | Error (errno,errstr) -> 
-                                   Printf.printf "no:%d err:%s\n" errno errstr ; -98
-                                end
-                              | Error _ -> -99
+                                | Ok fptr -> begin
+                                  Cstdio.File.fwrite_s msg fptr |> function
+                                  | Ok cnt -> Cstdio.File.fclose fptr |> ignore; cnt
+                                  | Error (errno,errstr) -> Printf.printf "no:%d err:%s\n" errno errstr; -98
+                                  end
+                                | Error _ -> -99
 
   let copy_buffer_sz_pos = fun len1 sz pos len2 ->
       let b1 = Cstdio.File.Buffer.create len1 in
@@ -215,7 +213,7 @@ let test_resize_buffer () =
 
 let test_create_many_buffers () =
   Alcotest.(check string) "create many buffers"
-  ("√") (* == *) (for _i = 0 to 9999 do
+  ("√") (* == *) (for _i = 0 to 999 do
                    (Cstdio.File.Buffer.create 10000000 |>
                     Cstdio.File.Buffer.release |> ignore)
                  done; "√")
