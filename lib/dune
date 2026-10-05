@@ -1,9 +1,8 @@
 (library
  (name mlcpp_cstdio)
  (public_name mlcpp_cstdio)
- (preprocess
-  (pps ppx_optcomp))
- (foreign_stubs (language cxx) (names cstdio) (flags -std=c++17 -fno-exceptions -fPIC))
+ (foreign_stubs (language cxx) (names cstdio) (flags :standard -O2 -std=c++17 -fno-exceptions -fPIC -Wall -Wextra))
  (c_library_flags :standard -lstdc++ -fPIC)
  (libraries unix)
+ (instrumentation (backend bisect_ppx))
 )

@@ -406,15 +406,15 @@ value cpp_copy_sz_pos(value vbuf1, value vpos1, value vsz, value vbuf2, value vp
     CAMLparam5(vbuf1, vpos1, vsz, vbuf2, vpos2);
     CAMLlocal1(res);
     long sz = Long_val(vsz);
-    if (sz < 0) { return Val_long(-3); }
+    if (sz < 0) { CAMLreturn(Val_long(-3)); }
     long pos1 = Long_val(vpos1);
-    if (pos1 < 0) { return Val_long(-4); }
+    if (pos1 < 0) { CAMLreturn(Val_long(-4)); }
     struct _cpp_cstdio_buffer *cb1 = CPP_CSTDIO_BUFFER(vbuf1);
-    if (cb1->_len < sz + pos1) { return Val_long(-1); }   // test if enough bytes can be copied from source
+    if (cb1->_len < sz + pos1) { CAMLreturn(Val_long(-1)); }   // test if enough bytes can be copied from source
     struct _cpp_cstdio_buffer *cb2 = CPP_CSTDIO_BUFFER(vbuf2);
     long pos2 = Long_val(vpos2);
-    if (pos2 < 0) { return Val_long(-5); }
-    if (cb2->_len < pos2 + sz) { return Val_long(-2); }  // test if the target can accept enough bytes
+    if (pos2 < 0) { CAMLreturn(Val_long(-5)); }
+    if (cb2->_len < pos2 + sz) { CAMLreturn(Val_long(-2)); }  // test if the target can accept enough bytes
     std::memcpy(cb2->_buf+pos2, cb1->_buf+pos1, sz);
     CAMLreturn(Val_long(sz));
 }

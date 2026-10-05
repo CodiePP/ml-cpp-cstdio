@@ -30,4 +30,7 @@ setup.log
 _opam/
 
 _build/
-mlcpp_cstdio.opam
+
+.DS_Store
+
+_coverage/

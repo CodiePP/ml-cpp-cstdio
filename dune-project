@@ -11,7 +11,7 @@
 
 (maintainers "Alexander Diemand <codieplusplus@apax.net>")
 
-(license LICENSE)
+(license "Apache-2.0")
 
 (documentation https://url/to/documentation)
 
@@ -19,6 +19,9 @@
  (name mlcpp_cstdio)
  (synopsis "OCaml embedded C++ file input/output")
  (description "C++ cstdio is a cross-platform abstraction of file input/output now available in OCaml")
- (depends ocaml dune)
+ (depends
+  (ocaml (>= 4.14))
+  dune
+  (alcotest :with-test))
  (tags
   (topics "cross-platform file input/output abstraction" your project)))

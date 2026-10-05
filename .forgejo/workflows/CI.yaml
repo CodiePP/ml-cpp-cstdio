@@ -1,0 +1,86 @@
+name: Forgejo CI Testing
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: build & test (OCaml ${{ matrix.ocaml }})
+    runs-on: nixos-amd64
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        ocaml: ["5.3", "4.14"]
+    container:
+      image: code.sbclab.net/alex/mlcpp-cstdio-ci:${{ matrix.ocaml }}
+      credentials:
+        username: alex
+        password: ${{ secrets.PAT }}
+      volumes:
+        - /mnt/ci-cache:/mnt/ci-cache
+    env:
+      DUNE_CACHE: enabled
+      DUNE_CACHE_ROOT: /mnt/ci-cache/dune
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          ocamlc -version
+          dune --version
+          g++ --version | head -n1
+
+      - name: Build
+        run: dune build @install
+
+      - name: Test
+        run: dune runtest --force
+
+  sanitize:
+    name: ASan/UBSan
+    runs-on: nixos-amd64
+    timeout-minutes: 20
+    container:
+      image: code.sbclab.net/alex/mlcpp-cstdio-ci:5.3
+      credentials:
+        username: alex
+        password: ${{ secrets.PAT }}
+      volumes:
+        - /mnt/ci-cache:/mnt/ci-cache
+    env:
+      DUNE_CACHE: enabled
+      DUNE_CACHE_ROOT: /mnt/ci-cache/dune
+      # the OCaml runtime does not free its heap at exit
+      ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: dune build @install --profile sanitize
+
+      - name: Test
+        run: dune runtest --force --profile sanitize
+
+  coverage:
+    name: coverage
+    runs-on: nixos-amd64
+    timeout-minutes: 20
+    container:
+      image: code.sbclab.net/alex/mlcpp-cstdio-ci:5.3
+      credentials:
+        username: alex
+        password: ${{ secrets.PAT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # no shared dune cache: the coverage counters are written at test time
+      - name: Coverage
+        run: scripts/coverage.sh
