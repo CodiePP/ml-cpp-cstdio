@@ -105,7 +105,7 @@ module File = struct
         if fpos < 0 then Error (-1, "file pos. cannot be negative")
         else
         let bsz = 64 * 1024 in
-        fopen fp "rx" |> function
+        fopen fp "rb" |> function
         | Error err -> Error err
         | Ok file -> begin
             fseek file fpos |> function

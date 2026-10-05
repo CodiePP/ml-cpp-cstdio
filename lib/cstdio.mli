@@ -4,7 +4,7 @@ sig
     module Buffer :
     sig
       type ta
-      val create : int -> ta
+      val create : int -> ta                (* Invalid_argument if negative *)
       val release : ta -> ta
       val resize : ta -> int -> unit
       val good : ta -> bool
@@ -12,10 +12,10 @@ sig
       val to_string : ta -> string
       val from_string : string -> ta
       val size : ta -> int
-      val get : ta -> int -> char
-      val set : ta -> int -> char -> unit
+      val get : ta -> int -> char           (* Invalid_argument if out of bounds *)
+      val set : ta -> int -> char -> unit   (* Invalid_argument if out of bounds *)
       val copy_sz_pos : ta -> pos1:int -> sz:int -> ta -> pos2:int -> int
-      val copy_string : string -> ta -> int -> unit
+      val copy_string : string -> ta -> int -> unit  (* Invalid_argument if it does not fit *)
     end
 
     type file
