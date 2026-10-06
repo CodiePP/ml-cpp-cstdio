@@ -2,15 +2,13 @@
 opam-version: "2.0"
 synopsis: "OCaml embedded C++ file input/output"
 description:
-  "C++ cstdio is a cross-platform abstraction of file input/output now available in OCaml"
+  "Files and byte buffers on the C heap through C++ <cstdio>, for OCaml on Linux and macOS"
 maintainer: ["Alexander Diemand <codieplusplus@apax.net>"]
 authors: ["Alexander Diemand <codieplusplus@apax.net>"]
 license: "Apache-2.0"
-tags: [
-  "topics" "cross-platform file input/output abstraction" "your" "project"
-]
+tags: ["files" "io" "stdio" "buffers" "bindings" "c++"]
 homepage: "https://github.com/CodiePP/ml-cpp-cstdio"
-doc: "https://url/to/documentation"
+doc: "https://github.com/CodiePP/ml-cpp-cstdio/blob/main/docs"
 bug-reports: "https://github.com/CodiePP/ml-cpp-cstdio/issues"
 depends: [
   "ocaml" {>= "4.14"}
@@ -33,3 +31,4 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/CodiePP/ml-cpp-cstdio.git"
+available: os = "linux" | os = "macos"

@@ -13,15 +13,15 @@
 
 (license "Apache-2.0")
 
-(documentation https://url/to/documentation)
+(documentation https://github.com/CodiePP/ml-cpp-cstdio/blob/main/docs)
 
 (package
  (name mlcpp_cstdio)
  (synopsis "OCaml embedded C++ file input/output")
- (description "C++ cstdio is a cross-platform abstraction of file input/output now available in OCaml")
+ (description "Files and byte buffers on the C heap through C++ <cstdio>, for OCaml on Linux and macOS")
  (depends
   (ocaml (>= 4.14))
   dune
   (alcotest :with-test))
  (tags
-  (topics "cross-platform file input/output abstraction" your project)))
+  (files io stdio buffers bindings c++)))

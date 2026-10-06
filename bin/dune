@@ -1,4 +1,5 @@
+; demo only, not installed: it writes files to /tmp
+
 (executable
- (public_name mlCppCStdio)
  (name main)
  (libraries mlcpp_cstdio))

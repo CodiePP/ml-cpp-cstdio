@@ -12,7 +12,8 @@ mkdir -p _coverage/ocaml _coverage/cxx
 # as stale on later builds, and old .gcda counts would add up
 rm -rf _build/default/lib
 
-BISECT_FILE="$root/_coverage/ocaml/bisect" \
+# no dune cache: a cached cstdio.o comes without its .gcno notes
+BISECT_FILE="$root/_coverage/ocaml/bisect" DUNE_CACHE=disabled \
   dune runtest --force --profile coverage --instrument-with bisect_ppx
 
 echo "OCaml (bisect_ppx):"

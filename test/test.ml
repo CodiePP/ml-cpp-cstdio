@@ -1,6 +1,3 @@
-
 let () =
   let open Alcotest in
-  run "ML Cpp CStdio" [
-    TestCStdio.test;
-  ]
+  run "ML Cpp CStdio" [ TestCStdio.test ]

@@ -1,0 +1,10 @@
+; examples are built and run by `dune runtest`, so CI keeps them working
+
+(executables
+ (names copy_file)
+ (libraries mlcpp_cstdio))
+
+(rule
+ (alias runtest)
+ (action
+  (run %{exe:copy_file.exe})))

@@ -18,8 +18,9 @@ ARG DEBIAN_VERSION=trixie
 FROM debian:${DEBIAN_VERSION}-slim AS build
 
 ARG OCAML_VERSION=5.3.0
-# Keep in sync with the build/test dependencies in lib/dune and test/dune.
-ARG OPAM_PACKAGES="dune alcotest bisect_ppx"
+# Keep in sync with the build/test dependencies in lib/dune and test/dune,
+# and ocamlformat with the version in .ocamlformat.
+ARG OPAM_PACKAGES="dune alcotest bisect_ppx ocamlformat.0.28.1"
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends opam build-essential ca-certificates git curl rsync patch unzip bubblewrap \
@@ -50,8 +51,9 @@ FROM debian:${DEBIAN_VERSION}-slim
 # g++:        compile and link the C++ stubs (-lstdc++); ships libasan/libubsan
 #             and pulls in gcc with gcov
 # git/nodejs: needed by actions/checkout inside the job container
+# cppcheck:   static analysis of the C++ stubs (lint job)
 RUN apt-get update \
- && apt-get install -y --no-install-recommends g++ libc6-dev git nodejs ca-certificates \
+ && apt-get install -y --no-install-recommends g++ libc6-dev git nodejs ca-certificates cppcheck \
  && rm -rf /var/lib/apt/lists/* \
  && useradd -m -d /home/ci ci
 

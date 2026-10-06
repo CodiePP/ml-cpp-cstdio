@@ -84,3 +84,31 @@ jobs:
       # no shared dune cache: the coverage counters are written at test time
       - name: Coverage
         run: scripts/coverage.sh
+
+  lint:
+    name: format & cppcheck
+    runs-on: nixos-amd64
+    timeout-minutes: 20
+    container:
+      image: code.sbclab.net/alex/mlcpp-cstdio-ci:5.3
+      credentials:
+        username: alex
+        password: ${{ secrets.PAT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # fails with the diff if a file is not formatted; fix with `dune fmt`
+      - name: Format (ocamlformat)
+        run: dune build @fmt
+
+      # warnings in the OCaml runtime headers are not ours;
+      # one #ifdef configuration of those headers, all branches of ours
+      - name: Static analysis (cppcheck)
+        run: |
+          cppcheck --version
+          cppcheck --enable=warning,performance,portability --std=c++17 --language=c++ \
+            --inline-suppr --error-exitcode=1 --quiet \
+            --max-configs=1 --check-level=exhaustive \
+            -I "$(ocamlc -where)" --suppress=missingIncludeSystem --suppress=toomanyconfigs \
+            --suppress='*:*/caml/*' \
+            lib/cstdio.cxx

@@ -1,9 +1,13 @@
 ; `dune build --profile sanitize` builds the C++ stubs with ASan/UBSan
 ; `dune build --profile coverage` builds them for gcov (see scripts/coverage.sh)
+
 (env
  (sanitize
   (cxx_flags
-   (:standard -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all))
+   (:standard
+    -fsanitize=address,undefined
+    -fno-omit-frame-pointer
+    -fno-sanitize-recover=all))
   (link_flags
    (:standard -ccopt -fsanitize=address,undefined)))
  (coverage

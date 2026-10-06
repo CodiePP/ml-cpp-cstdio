@@ -1,0 +1,6 @@
+; sequential write & read throughput; not part of runtest
+; run: dune exec --profile release bench/bench.exe -- [MiB, default 256]
+
+(executable
+ (name bench)
+ (libraries mlcpp_cstdio unix))

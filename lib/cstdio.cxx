@@ -8,12 +8,11 @@ extern "C" {
 #include <caml/custom.h>
 // #include <caml/callback.h>
 #include <caml/fail.h>
-
-#include <sys/errno.h>
 } //extern C
 
 // C++ includes
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -29,6 +28,8 @@ void del_cpp_cstdio_file (value v) {
     struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(v);
     if (s) {
         // printf("delete file %llx\n", s);
+        // a file dropped without fclose would leak its descriptor
+        if (s->_file) { std::fclose(s->_file); }
         delete s;
     }
 }
@@ -39,7 +40,9 @@ static struct custom_operations cpp_cstdio_file_ops = {
     custom_compare_default,
     custom_hash_default,
     custom_serialize_default,
-    custom_deserialize_default
+    custom_deserialize_default,
+    custom_compare_ext_default,
+    custom_fixed_length_default
 };
 
 void mk_file(value &res, _cpp_cstdio_file const &s) {
@@ -78,12 +81,15 @@ static struct custom_operations cpp_cstdio_buffer_ops = {
     custom_compare_default,
     custom_hash_default,
     custom_serialize_default,
-    custom_deserialize_default
+    custom_deserialize_default,
+    custom_compare_ext_default,
+    custom_fixed_length_default
 };
 
 void mk_buffer(value &res, _cpp_cstdio_buffer const &s) {
-    res = caml_alloc_custom(&cpp_cstdio_buffer_ops,
-                            sizeof(_cpp_cstdio_buffer*), 1, 10);
+    // tell the GC how much C heap this buffer holds
+    res = caml_alloc_custom_mem(&cpp_cstdio_buffer_ops,
+                                sizeof(_cpp_cstdio_buffer*), s._len);
     CPP_CSTDIO_BUFFER(res) = nullptr;
     auto * cs = new (std::nothrow) _cpp_cstdio_buffer;
     if (! cs) {
@@ -95,12 +101,25 @@ void mk_buffer(value &res, _cpp_cstdio_buffer const &s) {
     CPP_CSTDIO_BUFFER(res) = cs;
 }
 
+/*
+ *   strerror_r is the XSI variant (returns int, fills buf) on macOS/musl
+ *   and the GNU variant (returns char*, may not touch buf) on glibc with g++;
+ *   overloading on the return type handles both.
+ */
+static const char *strerror_result(int r, const char *buf) { return r == 0 ? buf : "unknown error"; }
+static const char *strerror_result(const char *r, const char *) { return r; }
+
+static value mk_errstr(int e) {
+    char buf[128] = {0};
+    return caml_copy_string(strerror_result(strerror_r(e, buf, sizeof(buf)), buf));
+}
+
 #define mk_err_values(vtuple, verrno, verrstr, iserr) \
     if (iserr) { \
-        verrno = Val_int(errno); \
-        char buf[64]; memset(buf, 0, 64); \
-        strerror_r(errno, buf, 63); \
-        verrstr = caml_alloc_initialized_string(strnlen(buf,64), buf); \
+        /* errno 0 would read as success on the OCaml side */ \
+        int e = errno ? errno : EIO; \
+        verrno = Val_int(e); \
+        verrstr = mk_errstr(e); \
     } else { \
         verrno = Val_int(0); \
         verrstr = caml_alloc_initialized_string(1, "-"); \
@@ -109,8 +128,8 @@ void mk_buffer(value &res, _cpp_cstdio_buffer const &s) {
     Store_field(vtuple, 0, verrno); \
     Store_field(vtuple, 1, verrstr); \
 
-#define set_err_values(vtuple, errno, errstr) \
-    verrno = Val_int(errno); \
+#define set_err_values(vtuple, eno, errstr) \
+    verrno = Val_int(eno); \
     verrstr = caml_alloc_initialized_string(strnlen(errstr,64), errstr); \
     vtuple = caml_alloc_tuple(2); \
     Store_field(vtuple, 0, verrno); \
@@ -337,11 +356,8 @@ value cpp_fread(value vbuf, value vn, value vfp)
         size_t n = (size_t)std::min(b->_len, Long_val(vn));
         char *tgt = b->_buf;
         cnt = std::fread(tgt, 1, n, s->_file);
-        if (cnt <= 0 && feof(s->_file) != 0) {
-            set_err_values(t2, -42, "EOF");
-        } else {
-            mk_err_values(t2, verrno, verrstr, (ferror(s->_file) != 0));
-        }
+        // end of file is not an error: a short count, 0 at the end
+        mk_err_values(t2, verrno, verrstr, (ferror(s->_file) != 0));
     }
     res = caml_alloc_tuple(2);
     Store_field(res, 0, Val_long(cnt));
@@ -396,9 +412,7 @@ value cpp_fwrite_s(value vs, value vfp)
     const char *msg = String_val(vs);
     const long n = caml_string_length(vs);
     struct _cpp_cstdio_file *s = CPP_CSTDIO_FILE(vfp);
-    if (msg == NULL || n < 0) {
-        set_err_values(t2, -1, "empty string");
-    } else if (s == NULL || s->_file == NULL) {
+    if (s == NULL || s->_file == NULL) {
         set_err_values(t2, -99, "no FILE pointer");
     } else {
         cnt = std::fwrite(msg, 1, (size_t)n, s->_file);
@@ -520,7 +534,7 @@ value cpp_buffer_resize(value vbuf, value vsz)
         void *p = realloc(cb->_buf, sz);
         if (p) {
             cb->_buf = (char*)p;
-            cb->_len = cb->_buf?sz:0;
+            cb->_len = sz;
         } else {
             fprintf(stderr, "realloc error: %d %s\n", errno, strerror(errno));
         }
@@ -535,9 +549,9 @@ value cpp_buffer_resize(value vbuf, value vsz)
 extern "C" {
 value cpp_buffer_good(value vbuf)
 {
-    CAMLparam1(vbuf);
+    // [@@noalloc]: no CAMLparam
     struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
-    CAMLreturn(Val_bool(cb != NULL && cb->_buf != NULL && cb->_len > 0));
+    return Val_bool(cb != NULL && cb->_buf != NULL && cb->_len > 0);
 }
 } // extern C
 
@@ -547,9 +561,9 @@ value cpp_buffer_good(value vbuf)
 extern "C" {
 value cpp_buffer_size(value vbuf)
 {
-    CAMLparam1(vbuf);
+    // [@@noalloc]: no CAMLparam
     struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
-    CAMLreturn(Val_long(cb ? cb->_len : 0));
+    return Val_long(cb ? cb->_len : 0);
 }
 } // extern C
 
@@ -606,5 +620,69 @@ value cpp_copy_string(value vs, value vbuf, value vidx)
     }
     memcpy(cb->_buf+idx, str, ls);
     CAMLreturn(Val_unit);
+}
+} // extern C
+
+/*
+ *  cpp_buffer_to_string: copy the buffer into a new string
+ */
+extern "C" {
+value cpp_buffer_to_string(value vbuf)
+{
+    CAMLparam1(vbuf);
+    CAMLlocal1(res);
+    // the C heap block does not move when the GC runs
+    const struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
+    if (cb && cb->_buf && cb->_len > 0) {
+        res = caml_alloc_initialized_string(cb->_len, cb->_buf);
+    } else {
+        res = caml_alloc_string(0);
+    }
+    CAMLreturn(res);
+}
+} // extern C
+
+/*
+ *  cpp_buffer_sub_string: copy len bytes at pos into a new string
+ */
+extern "C" {
+value cpp_buffer_sub_string(value vbuf, value vpos, value vlen)
+{
+    CAMLparam3(vbuf, vpos, vlen);
+    CAMLlocal1(res);
+    const struct _cpp_cstdio_buffer *cb = CPP_CSTDIO_BUFFER(vbuf);
+    long pos = Long_val(vpos);
+    long len = Long_val(vlen);
+    long blen = cb ? cb->_len : 0;
+    // written to not overflow: pos <= blen, then len <= blen - pos
+    if (pos < 0 || len < 0 || pos > blen || len > blen - pos) {
+        caml_invalid_argument("Buffer.sub_string: out of bounds");
+    }
+    if (len == 0) {
+        res = caml_alloc_string(0);
+    } else {
+        res = caml_alloc_initialized_string(len, cb->_buf + pos);
+    }
+    CAMLreturn(res);
+}
+} // extern C
+
+/*
+ *  cpp_buffer_from_string: create a buffer holding a copy of the string
+ */
+extern "C" {
+value cpp_buffer_from_string(value vs)
+{
+    CAMLparam1(vs);
+    CAMLlocal1(res);
+    long len = caml_string_length(vs);
+    struct _cpp_cstdio_buffer cb;
+    cb._buf = (char*)calloc(len, 1);
+    if (len > 0 && ! cb._buf) { caml_raise_out_of_memory(); }
+    // copy before mk_buffer allocates: the GC may move the string
+    if (len > 0) { std::memcpy(cb._buf, String_val(vs), len); }
+    cb._len = cb._buf ? len : 0;
+    mk_buffer(res, cb);
+    CAMLreturn(res);
 }
 } // extern C

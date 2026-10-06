@@ -1,8 +1,11 @@
 (library
  (name mlcpp_cstdio)
  (public_name mlcpp_cstdio)
- (foreign_stubs (language cxx) (names cstdio) (flags :standard -O2 -std=c++17 -fno-exceptions -fPIC -Wall -Wextra))
+ (foreign_stubs
+  (language cxx)
+  (names cstdio)
+  (flags :standard -O2 -std=c++17 -fno-exceptions -fPIC -Wall -Wextra))
  (c_library_flags :standard -lstdc++ -fPIC)
  (libraries unix)
- (instrumentation (backend bisect_ppx))
-)
+ (instrumentation
+  (backend bisect_ppx)))
